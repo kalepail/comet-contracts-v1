@@ -155,7 +155,6 @@ fn test_swap_out_given_in() {
     );
 
     // - do swap
-    let approval_ledger = (env.ledger().sequence() / 100000 + 1) * 100000;
     env.set_auths(&[]);
     let (res_2_out, _) = comet
         .mock_auths(&[MockAuth {
@@ -175,13 +174,12 @@ fn test_swap_out_given_in() {
                 ],
                 sub_invokes: &[MockAuthInvoke {
                     contract: &token_1,
-                    fn_name: &"approve",
+                    fn_name: &"transfer",
                     args: vec![
                         &env,
                         user.into_val(&env),
                         comet_id.into_val(&env),
                         swap_in_amount_fixed.into_val(&env),
-                        approval_ledger.into_val(&env),
                     ],
                     sub_invokes: &[],
                 }],
@@ -352,47 +350,16 @@ fn test_swap_in_given_out() {
     );
 
     // - do swap
-    let approval_ledger = (env.ledger().sequence() / 100000 + 1) * 100000;
-    env.set_auths(&[]);
-    let (res_2_in, _) = comet
-        .mock_auths(&[MockAuth {
-            address: &user,
-            invoke: &MockAuthInvoke {
-                contract: &comet_id,
-                fn_name: &"swap_exact_amount_out",
-                args: vec![
-                    &env,
-                    token_2.into_val(&env),
-                    over_in.into_val(&env),
-                    token_1.into_val(&env),
-                    swap_out_amount_fixed.into_val(&env),
-                    i128::MAX.into_val(&env),
-                    user.into_val(&env),
-                    Option::<Vec<FeeRecipient>>::None.into_val(&env),
-                ],
-                sub_invokes: &[MockAuthInvoke {
-                    contract: &token_2,
-                    fn_name: &"approve",
-                    args: vec![
-                        &env,
-                        user.into_val(&env),
-                        comet_id.into_val(&env),
-                        over_in.into_val(&env),
-                        approval_ledger.into_val(&env),
-                    ],
-                    sub_invokes: &[],
-                }],
-            },
-        }])
-        .swap_exact_amount_out(
-            &token_2,
-            &over_in,
-            &token_1,
-            &swap_out_amount_fixed,
-            &i128::MAX,
-            &user,
-            &None,
-        );
+    env.mock_all_auths();
+    let (res_2_in, _) = comet.swap_exact_amount_out(
+        &token_2,
+        &over_in,
+        &token_1,
+        &swap_out_amount_fixed,
+        &i128::MAX,
+        &user,
+        &None,
+    );
 
     assert!(res_2_in >= float_in_fixed); // rounds up
     assert_approx_eq_rel(res_2_in, float_in_fixed, 0_0001000);
@@ -1270,7 +1237,10 @@ fn test_fee_rule_skips_when_asset_not_involved() {
 
     let pool_balance_after = comet.get_balance(&token_3);
     assert_eq!(pool_balance_after, pool_balance_before);
-    assert_eq!(token_3_client.balance(&skip_recipient), recipient_balance_before);
+    assert_eq!(
+        token_3_client.balance(&skip_recipient),
+        recipient_balance_before
+    );
 }
 
 #[test]
@@ -1344,11 +1314,8 @@ fn test_fee_distribution_refunds_failed_transfers() {
     let pool_balance_after = comet.get_balance(&token_1);
     let fee_total = (0_0030000 * token_amount_in) / STROOP;
     let allocations = compute_expected_payouts(&[5_000000, 3_000000], fee_total);
-    let all_success_balance = pool_balance_before + token_amount_in
-        - allocations.iter().copied().sum::<i128>();
+    let all_success_balance =
+        pool_balance_before + token_amount_in - allocations.iter().copied().sum::<i128>();
     assert_eq!(successful_amount, allocations[1]);
-    assert_eq!(
-        pool_balance_after,
-        all_success_balance + allocations[0]
-    );
+    assert_eq!(pool_balance_after, all_success_balance + allocations[0]);
 }

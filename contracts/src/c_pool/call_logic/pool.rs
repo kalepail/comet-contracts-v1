@@ -63,7 +63,7 @@ pub fn execute_join_pool(e: Env, pool_amount_out: i128, max_amounts_in: Vec<i128
             token_amount_in,
         }
         .publish(&e);
-        pull_underlying(&e, &t, &user, token_amount_in, max_amount_in);
+        pull_underlying(&e, &t, &user, token_amount_in);
     }
 
     write_record(&e, records);
@@ -96,7 +96,10 @@ pub fn execute_exit_pool(e: Env, pool_amount_in: i128, min_amounts_out: Vec<i128
             token_amount_out <= rec.balance,
             Error::ErrInsufficientBalance
         );
-        rec.balance = rec.balance - token_amount_out;
+        rec.balance = rec
+            .balance
+            .checked_sub(token_amount_out)
+            .unwrap_or_else(|| panic_with_error!(&e, Error::ErrMathApprox));
         records.set(t.clone(), rec);
         ExitEvent {
             tag: POOL,
@@ -123,6 +126,7 @@ pub fn execute_swap_exact_amount_in(
     trade_recipients: Option<&Vec<FeeRecipient>>,
 ) -> (i128, i128) {
     assert_with_error!(&e, !read_freeze(&e), Error::ErrFreezeOnlyWithdrawals);
+    assert_with_error!(&e, token_in != token_out, Error::ErrSameTokenSwap);
     assert_with_error!(&e, token_amount_in > 0, Error::ErrNegativeOrZero);
     assert_with_error!(&e, min_amount_out >= 0, Error::ErrNegative);
     assert_with_error!(&e, max_price >= 0, Error::ErrNegative);
@@ -171,7 +175,10 @@ pub fn execute_swap_exact_amount_in(
         out_record.balance >= token_amount_out,
         Error::ErrInsufficientBalance
     );
-    out_record.balance = out_record.balance - token_amount_out;
+    out_record.balance = out_record
+        .balance
+        .checked_sub(token_amount_out)
+        .unwrap_or_else(|| panic_with_error!(&e, Error::ErrMathApprox));
 
     let spot_price_after = c_math::calc_spot_price(&in_record, &out_record, swap_fee);
 
@@ -201,13 +208,7 @@ pub fn execute_swap_exact_amount_in(
     }
     .publish(&e);
 
-    pull_underlying(
-        &e,
-        &token_in,
-        &user,
-        token_amount_in,
-        token_amount_in.clone(),
-    );
+    pull_underlying(&e, &token_in, &user, token_amount_in);
     push_underlying(&e, &token_out, &user, token_amount_out);
 
     record_map.set(token_in.clone(), in_record);
@@ -251,6 +252,7 @@ pub fn execute_swap_exact_amount_out(
     trade_recipients: Option<&Vec<FeeRecipient>>,
 ) -> (i128, i128) {
     assert_with_error!(&e, !read_freeze(&e), Error::ErrFreezeOnlyWithdrawals);
+    assert_with_error!(&e, token_in != token_out, Error::ErrSameTokenSwap);
     assert_with_error!(&e, token_amount_out > 0, Error::ErrNegativeOrZero);
     assert_with_error!(&e, max_amount_in > 0, Error::ErrNegativeOrZero);
     assert_with_error!(&e, max_price >= 0, Error::ErrNegative);
@@ -299,7 +301,10 @@ pub fn execute_swap_exact_amount_out(
         out_record.balance >= token_amount_out,
         Error::ErrInsufficientBalance
     );
-    out_record.balance = out_record.balance - token_amount_out;
+    out_record.balance = out_record
+        .balance
+        .checked_sub(token_amount_out)
+        .unwrap_or_else(|| panic_with_error!(&e, Error::ErrMathApprox));
 
     let spot_price_after = c_math::calc_spot_price(&in_record, &out_record, swap_fee);
 
@@ -328,7 +333,7 @@ pub fn execute_swap_exact_amount_out(
         token_amount_out,
     }
     .publish(&e);
-    pull_underlying(&e, &token_in, &user, token_amount_in, max_amount_in);
+    pull_underlying(&e, &token_in, &user, token_amount_in);
     push_underlying(&e, &token_out, &user, token_amount_out);
 
     record_map.set(token_in.clone(), in_record);
@@ -417,7 +422,7 @@ pub fn execute_dep_tokn_amt_in_get_lp_tokns_out(
         token_amount_in,
     }
     .publish(&e);
-    pull_underlying(&e, &token_in, &user, token_amount_in, token_amount_in);
+    pull_underlying(&e, &token_in, &user, token_amount_in);
     mint_shares(&e, &user, pool_amount_out);
 
     pool_amount_out
@@ -475,7 +480,7 @@ pub fn execute_dep_lp_tokn_amt_out_get_tokn_in(
         token_amount_in,
     }
     .publish(&e);
-    pull_underlying(&e, &token_in, &user, token_amount_in, max_amount_in);
+    pull_underlying(&e, &token_in, &user, token_amount_in);
     mint_shares(&e, &user, pool_amount_out);
 
     token_amount_in
@@ -521,7 +526,10 @@ pub fn execute_wdr_tokn_amt_in_get_lp_tokns_out(
         token_amount_out <= out_record.balance,
         Error::ErrInsufficientBalance
     );
-    out_record.balance = out_record.balance - token_amount_out;
+    out_record.balance = out_record
+        .balance
+        .checked_sub(token_amount_out)
+        .unwrap_or_else(|| panic_with_error!(&e, Error::ErrMathApprox));
 
     WithdrawEvent {
         tag: POOL,
@@ -584,7 +592,10 @@ pub fn execute_wdr_tokn_amt_out_get_lp_tokns_in(
         token_amount_out <= out_record.balance,
         Error::ErrInsufficientBalance
     );
-    out_record.balance = out_record.balance - token_amount_out;
+    out_record.balance = out_record
+        .balance
+        .checked_sub(token_amount_out)
+        .unwrap_or_else(|| panic_with_error!(&e, Error::ErrMathApprox));
     WithdrawEvent {
         tag: POOL,
         event: symbol_short!("withdraw"),

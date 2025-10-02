@@ -51,4 +51,6 @@ pub enum Error {
     ErrFeeRuleNotConfigured = 45,
     ErrFeeRuleUnsupportedToken = 46,
     ErrFeeDistribution = 47,
+    ErrMuxedAddress = 48,
+    ErrSameTokenSwap = 49,
 }
