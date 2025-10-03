@@ -48,4 +48,4 @@ stellar contract invoke \
 
 ---
 
-stellar contract bindings typescript --wasm target/wasm32v1-none/optimized/comet.wasm --output-dir bindings/comet-sdk
+stellar contract bindings typescript --wasm target/wasm32v1-none/optimized/comet.wasm --output-dir bindings/comet-sdk --overwrite
